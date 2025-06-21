@@ -3,7 +3,24 @@
 # SuperClaude - AI-powered development toolkit
 # Usage: ./scripts/superclaude.sh <command> [flags]
 
-SUPERCLAUDE_VERSION="1.0.0"
+# Get version from package.json
+get_version() {
+    local script_dir="$(dirname "$(readlink -f "$0" 2>/dev/null || realpath "$0" 2>/dev/null || echo "$0")")"
+    local package_json="$script_dir/../package.json"
+    
+    # Try to find package.json in various locations
+    if [ -f "$package_json" ]; then
+        grep '"version"' "$package_json" | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/'
+    elif [ -f "./package.json" ]; then
+        grep '"version"' "./package.json" | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/'
+    elif command -v npm >/dev/null 2>&1; then
+        npm list -g superclaude --depth=0 2>/dev/null | grep superclaude | sed 's/.*@\([0-9][^[:space:]]*\).*/\1/' || echo "unknown"
+    else
+        echo "unknown"
+    fi
+}
+
+SUPERCLAUDE_VERSION=$(get_version)
 
 # Parse flags and command
 INTERACTIVE_MODE=false
@@ -227,7 +244,7 @@ show_update_notification() {
     printf "${YELLOW}📦 Update Available!${NC}\n"
     printf "${YELLOW}  ├─ Current version: ${SUPERCLAUDE_VERSION}${NC}\n"
     printf "${YELLOW}  ├─ Latest version:  ${latest_version}${NC}\n"
-    printf "${YELLOW}  └─ Update command:  ${GREEN}npm update -g superclaude${NC}\n"
+    printf "${YELLOW}  └─ Update command:  ${GREEN}npm install -g superclaude@latest${NC}\n"
     echo ""
 }
 
@@ -1574,7 +1591,7 @@ cmd_version() {
         if [ "$latest_version" != "$SUPERCLAUDE_VERSION" ]; then
             printf "${YELLOW}  ├─ Current: v${SUPERCLAUDE_VERSION}${NC}\n"
             printf "${GREEN}  ├─ Latest:  v${latest_version}${NC}\n"
-            printf "${YELLOW}  └─ Update:  ${GREEN}npm update -g superclaude${NC}\n"
+            printf "${YELLOW}  └─ Update:  ${GREEN}npm install -g superclaude@latest${NC}\n"
         else
             printf "${GREEN}  └─ You're running the latest version! 🎉${NC}\n"
         fi
