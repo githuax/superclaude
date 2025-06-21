@@ -1,12 +1,28 @@
 {
   "name": "superclaude",
   "version": "1.0.0",
+  "description": "AI-powered development toolkit for commit messages, changelogs, documentation and code review",
   "main": "index.js",
+  "bin": {
+    "superclaude": "./bin/superclaude"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": [
+    "ai",
+    "claude",
+    "git",
+    "commit",
+    "changelog",
+    "documentation",
+    "code-review",
+    "cli"
+  ],
   "author": "",
   "license": "ISC",
-  "description": ""
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "preferGlobal": true
 }
