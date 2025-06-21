@@ -226,7 +226,43 @@ gh auth login           # Authenticate with GitHub
 
 **System Requirements:** Node.js 18+, Git configured with user info.
 
-> 💡 **Authentication Tip:** When running `gh auth login`, choose **SSH** over HTTPS. SSH is more secure, eliminates password prompts, and provides seamless authentication for all git operations. If you don't have SSH keys, GitHub CLI can generate them for you automatically.
+### GitHub Authentication Setup
+
+SuperClaude automatically detects your git remote configuration and validates the appropriate authentication method:
+
+#### 🔐 **SSH Authentication (Recommended)**
+If your remote uses `git@github.com:...` format:
+```bash
+# Generate SSH key (if you don't have one)
+ssh-keygen -t ed25519 -C "your@email.com"
+
+# Add public key to GitHub
+cat ~/.ssh/id_ed25519.pub
+# Copy the output and add it at: https://github.com/settings/keys
+
+# Test SSH connection
+ssh -T git@github.com
+```
+
+#### 🌐 **HTTPS Authentication**
+If your remote uses `https://github.com/...` format, you have three options:
+
+**Option 1: GitHub CLI (Recommended)**
+```bash
+brew install gh
+gh auth login  # Choose SSH when prompted
+```
+
+**Option 2: Switch to SSH**
+```bash
+git remote set-url origin git@github.com:USERNAME/REPOSITORY.git
+```
+
+**Option 3: Personal Access Token**
+- Create token at [GitHub Settings](https://github.com/settings/tokens)
+- Use token as password when git prompts for credentials
+
+> 💡 **Why SSH is Better:** SSH eliminates password prompts, is more secure, and provides seamless authentication. SuperClaude will automatically detect your setup and guide you through any authentication issues.
 
 ## Troubleshooting
 

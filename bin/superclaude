@@ -161,27 +161,56 @@ check_dependencies() {
         print_verbose "⚠ Yarn not found (optional, npm can be used instead)"
     fi
     
-    # Check GitHub CLI (required for git operations)
-    print_thinking "Checking GitHub CLI availability..."
+    # Check GitHub authentication (handles both SSH and HTTPS)
+    print_thinking "Checking GitHub authentication setup..."
+    
+    # First check if we're in a git repo and get remote URL
+    if git remote get-url origin >/dev/null 2>&1; then
+        local remote_url=$(git remote get-url origin)
+        print_verbose "Remote URL: $remote_url"
+        
+        if [[ "$remote_url" == git@github.com:* ]]; then
+            # SSH remote - check SSH key authentication
+            print_thinking "Detected SSH remote - verifying SSH key authentication..."
+            if ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+                print_verbose "✓ SSH authentication working"
+            else
+                print_error "✗ SSH authentication failed"
+                print_verbose "  Your SSH key may not be added to GitHub"
+                print_verbose "  Run 'ssh-keygen -t ed25519 -C \"your@email.com\"' to generate a key"
+                print_verbose "  Then add the public key to GitHub: https://github.com/settings/keys"
+                missing_deps+=("ssh-authentication")
+                all_good=false
+            fi
+        elif [[ "$remote_url" == https://github.com/* ]]; then
+            # HTTPS remote - check GitHub CLI or credential helper
+            print_thinking "Detected HTTPS remote - checking authentication methods..."
+            
+            if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+                print_verbose "✓ GitHub CLI authenticated (HTTPS will work)"
+            else
+                print_error "✗ HTTPS authentication not configured"
+                print_verbose "  For HTTPS remotes, you need either:"
+                print_verbose "  1. GitHub CLI: 'brew install gh && gh auth login'"
+                print_verbose "  2. Personal Access Token in git credentials"
+                print_verbose "  Recommendation: Switch to SSH for better security"
+                missing_deps+=("https-authentication")
+                all_good=false
+            fi
+        else
+            print_verbose "⚠ Unknown remote type: $remote_url"
+        fi
+    else
+        print_verbose "⚠ Not in a git repository or no remote configured"
+    fi
+    
+    # Also check GitHub CLI for enhanced features (optional but recommended)
+    print_thinking "Checking GitHub CLI for enhanced features..."
     if command -v gh >/dev/null 2>&1; then
         local gh_version=$(gh --version | head -1 | cut -d' ' -f3)
         print_verbose "✓ GitHub CLI found (version: $gh_version)"
-        
-        # Check GitHub CLI authentication (REQUIRED)
-        print_thinking "Verifying GitHub CLI authentication..."
-        if gh auth status >/dev/null 2>&1; then
-            print_verbose "✓ GitHub CLI authenticated"
-        else
-            print_error "✗ GitHub CLI not authenticated"
-            print_verbose "  Run 'gh auth login' to authenticate with GitHub"
-            missing_deps+=("github-authentication")
-            all_good=false
-        fi
     else
-        print_error "✗ GitHub CLI not found"
-        print_verbose "  GitHub CLI is required for git push operations"
-        missing_deps+=("github-cli")
-        all_good=false
+        print_verbose "⚠ GitHub CLI not found (optional, but enables enhanced workflows)"
     fi
     
     if [ "$all_good" = false ]; then
@@ -211,13 +240,17 @@ check_dependencies() {
                     printf "${BLUE}├─ Node.js:${NC} https://nodejs.org/en/download/\n"
                     printf "${BLUE}│  ${NC} Or: brew install node (macOS) / apt install nodejs (Linux)\n"
                     ;;
-                "github-cli")
-                    printf "${BLUE}├─ GitHub CLI:${NC} brew install gh (macOS) / apt install gh (Linux)\n"
-                    printf "${BLUE}│  ${NC} Or download from: https://cli.github.com/\n"
+                "ssh-authentication")
+                    printf "${BLUE}├─ SSH Authentication:${NC} Your SSH key is not working with GitHub\n"
+                    printf "${BLUE}│  ${NC} Generate key: ssh-keygen -t ed25519 -C \"your@email.com\"\n"
+                    printf "${BLUE}│  ${NC} Add to GitHub: https://github.com/settings/keys\n"
+                    printf "${BLUE}│  ${NC} Test with: ssh -T git@github.com\n"
                     ;;
-                "github-authentication")
-                    printf "${BLUE}├─ GitHub Authentication:${NC} Run 'gh auth login' and complete setup\n"
-                    printf "${BLUE}│  ${NC} Choose authentication method (browser/token/SSH)\n"
+                "https-authentication")
+                    printf "${BLUE}├─ HTTPS Authentication:${NC} Multiple options available\n"
+                    printf "${BLUE}│  ${NC} Option 1: Install GitHub CLI: brew install gh && gh auth login\n"
+                    printf "${BLUE}│  ${NC} Option 2: Switch to SSH: git remote set-url origin git@github.com:USER/REPO.git\n"
+                    printf "${BLUE}│  ${NC} Option 3: Use Personal Access Token with git credentials\n"
                     ;;
             esac
         done
