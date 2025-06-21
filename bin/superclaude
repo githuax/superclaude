@@ -87,13 +87,97 @@ check_git_repo() {
     fi
 }
 
-# Check system dependencies
+# Cache file for dependency verification
+CACHE_FILE="$HOME/.superclaude/cache.json"
+CACHE_EXPIRY_HOURS=24
+
+# Create cache directory if it doesn't exist
+ensure_cache_dir() {
+    mkdir -p "$(dirname "$CACHE_FILE")"
+}
+
+# Check if cache is valid (exists and not expired)
+is_cache_valid() {
+    if [ ! -f "$CACHE_FILE" ]; then
+        return 1
+    fi
+    
+    local cache_time=$(stat -f %m "$CACHE_FILE" 2>/dev/null || stat -c %Y "$CACHE_FILE" 2>/dev/null)
+    local current_time=$(date +%s)
+    local expiry_seconds=$((CACHE_EXPIRY_HOURS * 3600))
+    
+    if [ $((current_time - cache_time)) -gt $expiry_seconds ]; then
+        return 1
+    fi
+    
+    return 0
+}
+
+# Save successful verification to cache
+save_cache() {
+    ensure_cache_dir
+    cat > "$CACHE_FILE" << EOF
+{
+  "last_check": "$(date -Iseconds)",
+  "status": "verified",
+  "claude_version": "$(claude --version 2>/dev/null | head -1)",
+  "git_version": "$(git --version)",
+  "node_version": "$(node --version)",
+  "remote_url": "$(git remote get-url origin 2>/dev/null || echo 'none')",
+  "auth_method": "$1"
+}
+EOF
+}
+
+# Quick dependency check (only essentials)
+quick_check() {
+    # Only check Claude and current repo auth
+    if ! command -v claude >/dev/null 2>&1; then
+        return 1
+    fi
+    
+    if ! claude --print "test" >/dev/null 2>&1; then
+        return 1
+    fi
+    
+    # Check git repo and auth for current directory
+    if git remote get-url origin >/dev/null 2>&1; then
+        local remote_url=$(git remote get-url origin)
+        if [[ "$remote_url" == git@github.com:* ]]; then
+            if ! ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+                return 1
+            fi
+        elif [[ "$remote_url" == https://github.com/* ]]; then
+            if ! (command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1); then
+                return 1
+            fi
+        fi
+    fi
+    
+    return 0
+}
+
+# Check system dependencies (with smart caching)
 check_dependencies() {
+    # Force full check if --verify flag is used
+    if [[ "$*" == *"--verify"* ]]; then
+        print_verbose "🔄 Forcing full dependency verification (--verify flag)"
+    elif is_cache_valid && quick_check; then
+        if [ "$VERBOSE_MODE" = true ]; then
+            local cache_age=$(( ($(date +%s) - $(stat -f %m "$CACHE_FILE" 2>/dev/null || stat -c %Y "$CACHE_FILE" 2>/dev/null)) / 3600 ))
+            print_verbose "✅ Dependencies verified (cached ${cache_age}h ago)"
+        else
+            print_verbose "✅ Dependencies verified (cached)"
+        fi
+        return 0
+    fi
+    
     print_step "🔧 System dependencies check..."
     print_substep "Verifying required tools are installed..."
     
     local missing_deps=()
     local all_good=true
+    local auth_method=""
     
     # Check Claude Code
     print_thinking "Checking Claude Code availability..."
@@ -170,10 +254,11 @@ check_dependencies() {
         print_verbose "Remote URL: $remote_url"
         
         if [[ "$remote_url" == git@github.com:* ]]; then
-            # SSH remote - check SSH key authentication
+                         # SSH remote - check SSH key authentication
             print_thinking "Detected SSH remote - verifying SSH key authentication..."
             if ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
                 print_verbose "✓ SSH authentication working"
+                auth_method="ssh"
             else
                 print_error "✗ SSH authentication failed"
                 print_verbose "  Your SSH key may not be added to GitHub"
@@ -186,8 +271,9 @@ check_dependencies() {
             # HTTPS remote - check GitHub CLI or credential helper
             print_thinking "Detected HTTPS remote - checking authentication methods..."
             
-            if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+                         if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
                 print_verbose "✓ GitHub CLI authenticated (HTTPS will work)"
+                auth_method="https-gh"
             else
                 print_error "✗ HTTPS authentication not configured"
                 print_verbose "  For HTTPS remotes, you need either:"
@@ -262,6 +348,9 @@ check_dependencies() {
     
     print_success "All dependencies verified successfully"
     print_verbose "System ready for AI-powered development operations"
+    
+    # Save successful verification to cache
+    save_cache "$auth_method"
 }
 
 # Get codebase context for analysis
@@ -1328,7 +1417,8 @@ cmd_help() {
     
     printf "${YELLOW}🏁 Flags:${NC}\n"
     printf "  ${GREEN}--interactive, -i${NC}   # Interactive mode for commit confirmation\n"
-    printf "  ${GREEN}--verbose, -v${NC}       # Verbose mode for detailed output\n\n"
+    printf "  ${GREEN}--verbose, -v${NC}       # Verbose mode for detailed output\n"
+    printf "  ${GREEN}--verify${NC}            # Force full dependency verification (bypass cache)\n\n"
     
     printf "${YELLOW}📝 Examples:${NC}\n"
     printf "  ${GREEN}yarn superclaude:commit${NC}            # Quick AI commit (quiet mode)\n"
