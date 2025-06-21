@@ -78,6 +78,10 @@ while [ $# -gt 0 ]; do
             COMMAND="version"
             shift
             ;;
+        --verify)
+            COMMAND="verify"
+            shift
+            ;;
         -*)
             echo "❌ Unknown flag: $1"
             echo "Available flags: --interactive/-i, --verbose/-v, --verify, --version"
@@ -183,7 +187,7 @@ save_cache() {
   "claude_version": "$(claude --version 2>/dev/null | head -1)",
   "git_version": "$(git --version)",
   "node_version": "$(node --version)",
-  "remote_url": "$(git remote get-url origin 2>/dev/null || echo 'none')",
+  "global_auth": true,
   "auth_method": "$1"
 }
 EOF
@@ -201,18 +205,17 @@ quick_check() {
         return 1
     fi
     
-    # Check git repo and auth for current directory
-    if git remote get-url origin >/dev/null 2>&1; then
-        local remote_url=$(git remote get-url origin)
-        if [[ "$remote_url" == git@github.com:* ]]; then
-            if ! ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
-                return 1
-            fi
-        elif [[ "$remote_url" == https://github.com/* ]]; then
-            if ! (command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1); then
-                return 1
-            fi
-        fi
+    # Check GitHub authentication globally (not per-repo)
+    # This checks if user has global GitHub access, not specific to current repo
+    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+        # GitHub CLI is authenticated globally
+        return 0
+    elif ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+        # SSH key is working globally for GitHub
+        return 0
+    else
+        # No global GitHub authentication found
+        return 1
     fi
     
     return 0
@@ -381,49 +384,26 @@ check_dependencies() {
         print_verbose "⚠ Yarn not found (optional, npm can be used instead)"
     fi
     
-    # Check GitHub authentication (handles both SSH and HTTPS)
-    print_thinking "Checking GitHub authentication setup..."
+    # Check GitHub authentication globally (works for all repos)
+    print_thinking "Checking global GitHub authentication setup..."
     
-    # First check if we're in a git repo and get remote URL
-    if git remote get-url origin >/dev/null 2>&1; then
-        local remote_url=$(git remote get-url origin)
-        print_verbose "Remote URL: $remote_url"
-        
-        if [[ "$remote_url" == git@github.com:* ]]; then
-                         # SSH remote - check SSH key authentication
-            print_thinking "Detected SSH remote - verifying SSH key authentication..."
-            if ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
-                print_verbose "✓ SSH authentication working"
-                auth_method="ssh"
-            else
-                print_error "✗ SSH authentication failed"
-                print_verbose "  Your SSH key may not be added to GitHub"
-                print_verbose "  Run 'ssh-keygen -t ed25519 -C \"your@email.com\"' to generate a key"
-                print_verbose "  Then add the public key to GitHub: https://github.com/settings/keys"
-                missing_deps+=("ssh-authentication")
-                all_good=false
-            fi
-        elif [[ "$remote_url" == https://github.com/* ]]; then
-            # HTTPS remote - check GitHub CLI or credential helper
-            print_thinking "Detected HTTPS remote - checking authentication methods..."
-            
-                         if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-                print_verbose "✓ GitHub CLI authenticated (HTTPS will work)"
-                auth_method="https-gh"
-            else
-                print_error "✗ HTTPS authentication not configured"
-                print_verbose "  For HTTPS remotes, you need either:"
-                print_verbose "  1. GitHub CLI: 'brew install gh && gh auth login'"
-                print_verbose "  2. Personal Access Token in git credentials"
-                print_verbose "  Recommendation: Switch to SSH for better security"
-                missing_deps+=("https-authentication")
-                all_good=false
-            fi
-        else
-            print_verbose "⚠ Unknown remote type: $remote_url"
-        fi
+    # Check GitHub CLI first (preferred method)
+    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+        print_verbose "✓ GitHub CLI authenticated globally"
+        auth_method="github-cli"
+    elif ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+        print_verbose "✓ SSH key authenticated globally with GitHub"
+        auth_method="ssh"
     else
-        print_verbose "⚠ Not in a git repository or no remote configured"
+        print_error "✗ No global GitHub authentication found"
+        print_verbose "  You need to authenticate with GitHub once to use superclaude"
+        print_verbose "  Choose one of these options:"
+        print_verbose "  1. GitHub CLI (recommended): 'brew install gh && gh auth login'"
+        print_verbose "  2. SSH key: Generate with 'ssh-keygen -t ed25519 -C \"your@email.com\"'"
+        print_verbose "     Then add to GitHub: https://github.com/settings/keys"
+        print_verbose "  3. Test SSH with: 'ssh -T git@github.com'"
+        missing_deps+=("github-authentication")
+        all_good=false
     fi
     
     # Also check GitHub CLI for enhanced features (optional but recommended)
@@ -462,17 +442,12 @@ check_dependencies() {
                     printf "${BLUE}├─ Node.js:${NC} https://nodejs.org/en/download/\n"
                     printf "${BLUE}│  ${NC} Or: brew install node (macOS) / apt install nodejs (Linux)\n"
                     ;;
-                "ssh-authentication")
-                    printf "${BLUE}├─ SSH Authentication:${NC} Your SSH key is not working with GitHub\n"
-                    printf "${BLUE}│  ${NC} Generate key: ssh-keygen -t ed25519 -C \"your@email.com\"\n"
-                    printf "${BLUE}│  ${NC} Add to GitHub: https://github.com/settings/keys\n"
-                    printf "${BLUE}│  ${NC} Test with: ssh -T git@github.com\n"
-                    ;;
-                "https-authentication")
-                    printf "${BLUE}├─ HTTPS Authentication:${NC} Multiple options available\n"
-                    printf "${BLUE}│  ${NC} Option 1: Install GitHub CLI: brew install gh && gh auth login\n"
-                    printf "${BLUE}│  ${NC} Option 2: Switch to SSH: git remote set-url origin git@github.com:USER/REPO.git\n"
-                    printf "${BLUE}│  ${NC} Option 3: Use Personal Access Token with git credentials\n"
+                "github-authentication")
+                    printf "${BLUE}├─ GitHub Authentication:${NC} Set up global GitHub access\n"
+                    printf "${BLUE}│  ${NC} Option 1 (recommended): Install GitHub CLI: brew install gh && gh auth login\n"
+                    printf "${BLUE}│  ${NC} Option 2: SSH key: ssh-keygen -t ed25519 -C \"your@email.com\"\n"
+                    printf "${BLUE}│  ${NC}   Then add to GitHub: https://github.com/settings/keys\n"
+                    printf "${BLUE}│  ${NC}   Test with: ssh -T git@github.com\n"
                     ;;
             esac
         done
@@ -1607,6 +1582,9 @@ case "$COMMAND" in
         ;;
     "version"|"--version")
         cmd_version
+        ;;
+    "verify"|"--verify")
+        check_dependencies --verify
         ;;
     "help"|"--help"|"-h"|"")
         cmd_help
