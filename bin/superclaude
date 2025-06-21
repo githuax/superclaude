@@ -691,43 +691,20 @@ cmd_commit() {
     local full_commit_hash=$(git rev-parse HEAD)
     print_verbose "Commit created successfully: $commit_hash"
     
-    # Auto-annotate the new commit
+    # Auto-annotate the new commit with the same message
     print_step "📝 Adding AI annotation to commit..."
-    print_substep "Generating detailed annotation for the new commit..."
-    print_thinking "Analyzing the commit we just made..."
+    print_substep "Using the same AI-generated message as annotation..."
+    print_thinking "Since we already have a descriptive Claude-generated message, using it as annotation..."
     
-    # Get the diff for the commit we just made
-    local new_commit_diff=$(git show --format="" "$full_commit_hash" | head -100)
+    # Use the same commit message as annotation (no need for extra Claude call)
+    print_verbose "Reusing AI-generated commit message for annotation"
     
-    if [ -n "$new_commit_diff" ]; then
-        print_verbose "Extracting commit diff for annotation..."
-        # Load and process annotation prompt template
-        local annotation_template=$(load_prompt "annotation")
-        local annotation_prompt_1=$(process_template "$annotation_template" "commit_message" "$commit_msg")
-        local annotation_prompt_2=$(process_template "$annotation_prompt_1" "commit_hash" "$commit_hash")
-        local annotation_prompt=$(process_template "$annotation_prompt_2" "commit_diff" "$new_commit_diff")
-
-        print_thinking "Sending commit analysis to Claude..."
-        local commit_annotation=$(claude --print "$annotation_prompt" 2>&1)
-        
-        # Check for Claude errors
-        if [[ "$commit_annotation" == *"error"* ]] || [[ "$commit_annotation" == *"Error"* ]] || [ -z "$commit_annotation" ]; then
-            print_verbose "Claude AI annotation failed, creating fallback note..."
-            local commit_annotation="Auto-generated commit note - Message: $commit_msg"
-        fi
-        
-        # Clean up annotation
-        local cleaned_commit_annotation=$(echo "$commit_annotation" | sed 's/^```.*$//' | sed 's/^```$//' | head -15)
-        
-        # Add the note to the commit
-        print_substep "Adding comprehensive note to commit..."
-        if git notes add -m "$cleaned_commit_annotation" "$full_commit_hash" 2>/dev/null; then
-            print_verbose "✓ AI annotation added to commit: $commit_hash"
-        else
-            print_verbose "⚠ Note addition failed (may already exist)"
-        fi
+    # Add the note to the commit using the same message
+    print_substep "Adding commit message as annotation note..."
+    if git notes add -m "$commit_msg" "$full_commit_hash" 2>/dev/null; then
+        print_verbose "✓ AI annotation added to commit: $commit_hash"
     else
-        print_verbose "No diff found for annotation"
+        print_verbose "⚠ Note addition failed (may already exist)"
     fi
     
     # Push to current branch
