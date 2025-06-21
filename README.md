@@ -14,6 +14,19 @@ Before installing SuperClaude, ensure you have:
 - **Git** - [Install Git](https://git-scm.com/downloads)
 - **Claude Code** - Install with: `npm install -g @anthropic-ai/claude-code`
 
+### Optional (Recommended)
+- **GitHub CLI** - For enhanced git workflows and PR creation:
+  ```bash
+  # macOS (recommended)
+  brew install gh
+  
+  # Or download from GitHub
+  # https://cli.github.com/
+  
+  # Authenticate after installation
+  gh auth login
+  ```
+
 ### Claude Code Setup
 After installing Claude Code, authenticate by running:
 ```bash
@@ -208,6 +221,18 @@ claude
 ```bash
 git config --global user.name "Your Name"
 git config --global user.email "your@email.com"
+```
+
+**GitHub CLI issues (optional)**
+```bash
+# Install with brew (recommended on macOS)
+brew install gh
+
+# Or install via other methods
+# https://cli.github.com/
+
+# Authenticate 
+gh auth login
 ```
 
 **"Not in a git repository"**

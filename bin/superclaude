@@ -161,6 +161,23 @@ check_dependencies() {
         print_verbose "⚠ Yarn not found (optional, npm can be used instead)"
     fi
     
+    # Check GitHub CLI (optional but recommended)
+    print_thinking "Checking GitHub CLI availability..."
+    if command -v gh >/dev/null 2>&1; then
+        local gh_version=$(gh --version | head -1 | cut -d' ' -f3)
+        print_verbose "✓ GitHub CLI found (version: $gh_version)"
+        
+        # Check GitHub CLI authentication
+        print_thinking "Verifying GitHub CLI authentication..."
+        if gh auth status >/dev/null 2>&1; then
+            print_verbose "✓ GitHub CLI authenticated"
+        else
+            print_verbose "⚠ GitHub CLI not authenticated (optional for enhanced workflows)"
+        fi
+    else
+        print_verbose "⚠ GitHub CLI not found (optional, enhances git workflows)"
+    fi
+    
     if [ "$all_good" = false ]; then
         print_error "Missing required dependencies: ${missing_deps[*]}"
         echo ""
