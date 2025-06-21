@@ -100,6 +100,17 @@ check_dependencies() {
     if command -v claude >/dev/null 2>&1; then
         local claude_version=$(claude --version 2>/dev/null || echo "unknown")
         print_verbose "✓ Claude Code found (version: $claude_version)"
+        
+        # Check Claude Code authentication by looking for auth config
+        print_thinking "Verifying Claude Code authentication..."
+        if [ -f "$HOME/.config/claude-code/auth.json" ] || [ -f "$HOME/.claude/auth.json" ]; then
+            print_verbose "✓ Claude Code authentication found"
+        else
+            print_error "✗ Claude Code not authenticated"
+            print_verbose "  Run 'claude' and complete the authentication process"
+            missing_deps+=("claude-auth")
+            all_good=false
+        fi
     else
         print_error "✗ Claude Code not found"
         missing_deps+=("claude")
@@ -111,6 +122,19 @@ check_dependencies() {
     if command -v git >/dev/null 2>&1; then
         local git_version=$(git --version | cut -d' ' -f3)
         print_verbose "✓ Git found (version: $git_version)"
+        
+        # Check Git configuration
+        print_thinking "Verifying Git user configuration..."
+        local git_user_name=$(git config --global user.name 2>/dev/null)
+        local git_user_email=$(git config --global user.email 2>/dev/null)
+        
+        if [ -n "$git_user_name" ] && [ -n "$git_user_email" ]; then
+            print_verbose "✓ Git configured (${git_user_name} <${git_user_email}>)"
+        else
+            print_error "✗ Git user not configured"
+            missing_deps+=("git-config")
+            all_good=false
+        fi
     else
         print_error "✗ Git not found"
         missing_deps+=("git")
@@ -148,9 +172,17 @@ check_dependencies() {
                     printf "${BLUE}├─ Claude Code:${NC} npm install -g @anthropic-ai/claude-code\n"
                     printf "${BLUE}│  ${NC} Then run: claude auth login\n"
                     ;;
+                "claude-auth")
+                    printf "${BLUE}├─ Claude Code Authentication:${NC} Run 'claude' and complete setup\n"
+                    printf "${BLUE}│  ${NC} Choose from Anthropic Console, Claude Pro/Max, or Enterprise options\n"
+                    ;;
                 "git")
                     printf "${BLUE}├─ Git:${NC} https://git-scm.com/downloads\n"
                     printf "${BLUE}│  ${NC} Or: brew install git (macOS) / apt install git (Linux)\n"
+                    ;;
+                "git-config")
+                    printf "${BLUE}├─ Git Configuration:${NC} git config --global user.name \"Your Name\"\n"
+                    printf "${BLUE}│  ${NC} And run: git config --global user.email \"your@email.com\"\n"
                     ;;
                 "node")
                     printf "${BLUE}├─ Node.js:${NC} https://nodejs.org/en/download/\n"

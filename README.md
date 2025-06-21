@@ -15,12 +15,22 @@ Before installing SuperClaude, ensure you have:
 - **Claude Code** - Install with: `npm install -g @anthropic-ai/claude-code`
 
 ### Claude Code Setup
-After installing Claude Code, authenticate:
+After installing Claude Code, authenticate by running:
 ```bash
-claude auth login
+claude
 ```
 
-You'll need an Anthropic API key. Get one at [console.anthropic.com](https://console.anthropic.com/).
+Claude Code will guide you through authentication options:
+- **Anthropic Console**: OAuth process (requires billing at console.anthropic.com)
+- **Claude Pro/Max**: Login with your Claude.ai subscription
+- **Enterprise**: Amazon Bedrock or Google Vertex AI
+
+### Git Setup
+Ensure Git is configured with your user information:
+```bash
+git config --global user.name "Your Name"
+git config --global user.email "your@email.com"
+```
 
 ## Installation
 
@@ -186,6 +196,18 @@ SuperClaude requires a git repository and will:
 ```bash
 npm install -g @anthropic-ai/claude-code
 claude auth login
+```
+
+**"Claude Code not authenticated"**
+```bash
+claude
+# Follow the authentication prompts to set up your preferred option
+```
+
+**"Git user not configured"**
+```bash
+git config --global user.name "Your Name"
+git config --global user.email "your@email.com"
 ```
 
 **"Not in a git repository"**
