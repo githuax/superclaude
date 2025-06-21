@@ -22,6 +22,43 @@ get_version() {
 
 SUPERCLAUDE_VERSION=$(get_version)
 
+# Get script directory for finding prompt files
+get_script_dir() {
+    dirname "$(readlink -f "$0" 2>/dev/null || realpath "$0" 2>/dev/null || echo "$0")"
+}
+
+# Load and process prompt template
+load_prompt() {
+    local prompt_name="$1"
+    local script_dir="$(get_script_dir)"
+    local prompt_file="$script_dir/../prompts/$prompt_name.md"
+    
+    if [ -f "$prompt_file" ]; then
+        cat "$prompt_file"
+    else
+        print_error "Prompt file not found: $prompt_file"
+        exit 1
+    fi
+}
+
+# Simple template variable replacement
+process_template() {
+    local template="$1"
+    local key="$2"
+    local value="$3"
+    
+    # For now, just replace the first occurrence manually
+    # This is a simple implementation that works for our basic use case
+    printf "%s" "$template" | sed "s/{{$key}}/PLACEHOLDER_START/g" | \
+    while IFS= read -r line; do
+        if [[ "$line" == *"PLACEHOLDER_START"* ]]; then
+            echo "${line/PLACEHOLDER_START/$value}"
+        else
+            echo "$line"
+        fi
+    done
+}
+
 # Parse flags and command
 INTERACTIVE_MODE=false
 VERBOSE_MODE=false
@@ -502,22 +539,10 @@ cmd_commit() {
     print_substep "Building context for AI commit message generation..."
     print_thinking "Analyzing code changes to understand the intent and impact..."
     
-    local commit_prompt="Write a concise commit message in conventional commits format for these changes:
-
-Files changed: $file_changes
-
-Git diff stat:
-$diff_stat
-
-Requirements:
-- Use conventional commits format (feat:, fix:, refactor:, etc.)
-- Keep the first line under 50 characters
-- Add bullet points for details if needed
-- Be specific about what was changed
-- Output ONLY the raw commit message text
-- Do NOT include any prefatory text like 'Here's the commit message:' or 'Based on the changes:'
-- Do NOT use markdown formatting, backticks, or code blocks
-- Start directly with the commit message (e.g. 'feat: add user authentication')"
+    # Load and process commit prompt template
+    local prompt_template=$(load_prompt "commit")
+    local commit_prompt_1=$(process_template "$prompt_template" "file_changes" "$file_changes")
+    local commit_prompt=$(process_template "$commit_prompt_1" "diff_stat" "$diff_stat")
 
     print_substep "Sending analysis request to Claude..."
     print_thinking "Determining commit type (feat/fix/refactor/etc.) based on file patterns..."
@@ -676,21 +701,11 @@ Requirements:
     
     if [ -n "$new_commit_diff" ]; then
         print_verbose "Extracting commit diff for annotation..."
-        local annotation_prompt="Create a detailed technical note for this commit:
-
-Commit Message: $commit_msg
-Commit Hash: $commit_hash
-
-Diff:
-$new_commit_diff
-
-Create a comprehensive note that explains:
-- What specific changes were made
-- Why these changes were necessary
-- Technical details about the implementation
-- Impact on the codebase
-
-Be detailed but concise. Return ONLY the note content."
+        # Load and process annotation prompt template
+        local annotation_template=$(load_prompt "annotation")
+        local annotation_prompt_1=$(process_template "$annotation_template" "commit_message" "$commit_msg")
+        local annotation_prompt_2=$(process_template "$annotation_prompt_1" "commit_hash" "$commit_hash")
+        local annotation_prompt=$(process_template "$annotation_prompt_2" "commit_diff" "$new_commit_diff")
 
         print_thinking "Sending commit analysis to Claude..."
         local commit_annotation=$(claude --print "$annotation_prompt" 2>&1)
@@ -1197,17 +1212,11 @@ cmd_changelog() {
     local recent_commit_count=$(echo "$recent_commit_history" | wc -l | tr -d ' ')
     print_verbose "Using ${recent_commit_count} recent commits for main changelog"
     
-    local changelog_content=$(claude --print "Create a CHANGELOG.md from these recent commits:
-
-$recent_commit_history
-
-Simple format:
-- Group by time periods
-- Use semantic versioning sections (Added, Changed, Fixed)
-- Focus on key features and fixes
-- Standard changelog format
-
-Return only the changelog content." 2>&1)
+    # Load and process changelog prompt template
+    local changelog_template=$(load_prompt "changelog")
+    local changelog_prompt=$(process_template "$changelog_template" "commits" "$recent_commit_history")
+    
+    local changelog_content=$(claude --print "$changelog_prompt" 2>&1)
     
     # Check for errors
     if [[ "$changelog_content" == *"error"* ]] || [[ "$changelog_content" == *"Error"* ]] || [ -z "$changelog_content" ]; then
@@ -1288,17 +1297,11 @@ $(git log --pretty=format:'- %ad: %s' --date=short -n 50)
         return 0
     fi
     
-    local daily_content=$(claude --print "Create a brief, human-readable daily changelog from these recent commits:
-
-$daily_commits
-
-Keep it simple:
-- Group by date
-- 1-2 key points per day
-- Focus on features and fixes
-- Use clear language
-
-Format: ## YYYY-MM-DD then bullet points." 2>&1)
+    # Load and process daily changelog prompt template
+    local daily_template=$(load_prompt "daily-changelog")
+    local daily_prompt=$(process_template "$daily_template" "commits" "$daily_commits")
+    
+    local daily_content=$(claude --print "$daily_prompt" 2>&1)
     
     # Check if Claude returned an error
     if [[ "$daily_content" == *"error"* ]] || [[ "$daily_content" == *"Error"* ]] || [ -z "$daily_content" ]; then
@@ -1341,16 +1344,11 @@ Format: ## YYYY-MM-DD then bullet points." 2>&1)
     print_verbose "Extracted ${weekly_commit_count} weekly entries for analysis"
     print_substep "Sending weekly patterns to Claude AI..."
     
-    local weekly_content=$(claude --print "Create a weekly summary from these commits:
-
-$weekly_commits
-
-Simple format:
-- Group by week
-- Key accomplishments per week
-- Focus on features and major changes
-
-Format: ## Week YYYY-WXX then bullets." 2>&1)
+    # Load and process weekly changelog prompt template
+    local weekly_template=$(load_prompt "weekly-changelog")
+    local weekly_prompt=$(process_template "$weekly_template" "commits" "$weekly_commits")
+    
+    local weekly_content=$(claude --print "$weekly_prompt" 2>&1)
     
     # Check for errors
     if [[ "$weekly_content" == *"error"* ]] || [[ "$weekly_content" == *"Error"* ]] || [ -z "$weekly_content" ]; then
@@ -1392,16 +1390,11 @@ Format: ## Week YYYY-WXX then bullets." 2>&1)
     print_verbose "Extracted ${monthly_commit_count} monthly entries for analysis"
     print_substep "Sending monthly trends to Claude AI..."
     
-    local monthly_content=$(claude --print "Create a monthly summary from these commits:
-
-$monthly_commits
-
-High-level format:
-- Group by month
-- Major achievements per month
-- Focus on key features and milestones
-
-Format: ## YYYY-MM then bullets." 2>&1)
+    # Load and process monthly changelog prompt template
+    local monthly_template=$(load_prompt "monthly-changelog")
+    local monthly_prompt=$(process_template "$monthly_template" "commits" "$monthly_commits")
+    
+    local monthly_content=$(claude --print "$monthly_prompt" 2>&1)
     
     # Check for errors
     if [[ "$monthly_content" == *"error"* ]] || [[ "$monthly_content" == *"Error"* ]] || [ -z "$monthly_content" ]; then
