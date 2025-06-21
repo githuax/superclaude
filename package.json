@@ -19,10 +19,18 @@
     "code-review",
     "cli"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "SuperClaude Contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/superclaude.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/superclaude/issues"
+  },
+  "homepage": "https://github.com/your-username/superclaude#readme",
+  "license": "MIT",
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18.0.0"
   },
   "preferGlobal": true
 }

@@ -95,13 +95,13 @@ check_dependencies() {
     local missing_deps=()
     local all_good=true
     
-    # Check Claude CLI
-    print_thinking "Checking Claude CLI availability..."
+    # Check Claude Code
+    print_thinking "Checking Claude Code availability..."
     if command -v claude >/dev/null 2>&1; then
         local claude_version=$(claude --version 2>/dev/null || echo "unknown")
-        print_verbose "✓ Claude CLI found (version: $claude_version)"
+        print_verbose "✓ Claude Code found (version: $claude_version)"
     else
-        print_error "✗ Claude CLI not found"
+        print_error "✗ Claude Code not found"
         missing_deps+=("claude")
         all_good=false
     fi
@@ -145,7 +145,7 @@ check_dependencies() {
         for dep in "${missing_deps[@]}"; do
             case $dep in
                 "claude")
-                    printf "${BLUE}├─ Claude CLI:${NC} npm install -g @anthropic-ai/claude-cli\n"
+                    printf "${BLUE}├─ Claude Code:${NC} npm install -g @anthropic-ai/claude-code\n"
                     printf "${BLUE}│  ${NC} Then run: claude auth login\n"
                     ;;
                 "git")
