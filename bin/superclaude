@@ -3,6 +3,8 @@
 # SuperClaude - AI-powered development toolkit
 # Usage: ./scripts/superclaude.sh <command> [flags]
 
+SUPERCLAUDE_VERSION="1.0.0"
+
 # Parse flags and command
 INTERACTIVE_MODE=false
 VERBOSE_MODE=false
@@ -18,9 +20,13 @@ while [ $# -gt 0 ]; do
             VERBOSE_MODE=true
             shift
             ;;
+        --version)
+            COMMAND="version"
+            shift
+            ;;
         -*)
             echo "❌ Unknown flag: $1"
-            echo "Available flags: --interactive/-i, --verbose/-v"
+            echo "Available flags: --interactive/-i, --verbose/-v, --verify, --version"
             exit 1
             ;;
         *)
@@ -155,6 +161,74 @@ quick_check() {
     fi
     
     return 0
+}
+
+# Check for updates (cached for 24 hours)
+check_for_updates() {
+    local update_cache_file="$HOME/.superclaude/update_cache.json"
+    
+    # Check if update cache is valid (24 hours)
+    if [ -f "$update_cache_file" ]; then
+        local cache_time=$(stat -f %m "$update_cache_file" 2>/dev/null || stat -c %Y "$update_cache_file" 2>/dev/null)
+        local current_time=$(date +%s)
+        local expiry_seconds=$((24 * 3600))
+        
+        if [ $((current_time - cache_time)) -lt $expiry_seconds ]; then
+            # Use cached result
+            if [ -f "$update_cache_file" ] && grep -q "update_available.*true" "$update_cache_file"; then
+                local latest_version=$(grep '"latest_version"' "$update_cache_file" | sed 's/.*"latest_version": *"\([^"]*\)".*/\1/')
+                show_update_notification "$latest_version"
+            fi
+            return 0
+        fi
+    fi
+    
+    # Check npm for latest version (async, don't block if it fails)
+    print_thinking "Checking for SuperClaude updates..."
+    
+    # Use timeout to prevent hanging
+    local latest_version=""
+    if command -v timeout >/dev/null 2>&1; then
+        latest_version=$(timeout 3s npm view superclaude version 2>/dev/null || echo "")
+    else
+        # Fallback for systems without timeout
+        latest_version=$(npm view superclaude version 2>/dev/null || echo "")
+    fi
+    
+    ensure_cache_dir
+    
+    if [ -n "$latest_version" ] && [ "$latest_version" != "$SUPERCLAUDE_VERSION" ]; then
+        # Update available
+        cat > "$update_cache_file" << EOF
+{
+  "last_check": "$(date -Iseconds)",
+  "current_version": "$SUPERCLAUDE_VERSION",
+  "latest_version": "$latest_version",
+  "update_available": true
+}
+EOF
+        show_update_notification "$latest_version"
+    else
+        # No update or failed to check
+        cat > "$update_cache_file" << EOF
+{
+  "last_check": "$(date -Iseconds)",
+  "current_version": "$SUPERCLAUDE_VERSION",
+  "latest_version": "${latest_version:-unknown}",
+  "update_available": false
+}
+EOF
+    fi
+}
+
+# Show update notification
+show_update_notification() {
+    local latest_version="$1"
+    printf "${YELLOW}📦 Update Available!${NC}\n"
+    printf "${YELLOW}  ├─ Current version: ${SUPERCLAUDE_VERSION}${NC}\n"
+    printf "${YELLOW}  ├─ Latest version:  ${latest_version}${NC}\n"
+    printf "${YELLOW}  └─ Update command:  ${GREEN}npm update -g superclaude${NC}\n"
+    echo ""
 }
 
 # Check system dependencies (with smart caching)
@@ -351,6 +425,9 @@ check_dependencies() {
     
     # Save successful verification to cache
     save_cache "$auth_method"
+    
+    # Check for updates (non-blocking)
+    check_for_updates
 }
 
 # Get codebase context for analysis
@@ -1409,6 +1486,8 @@ cmd_help() {
     
     printf "  ${BLUE}help${NC}       - ❓ Show this comprehensive help message\n\n"
     
+    printf "  ${BLUE}version${NC}    - 📋 Show version and system information\n\n"
+    
     printf "${YELLOW}🚀 Usage Patterns:${NC}\n"
     printf "  ${GREEN}yarn superclaude <command> [flags]${NC}  # Full command name\n"
     printf "  ${GREEN}yarn superclaude:<command>${NC}          # Quick yarn shortcut\n"
@@ -1418,7 +1497,8 @@ cmd_help() {
     printf "${YELLOW}🏁 Flags:${NC}\n"
     printf "  ${GREEN}--interactive, -i${NC}   # Interactive mode for commit confirmation\n"
     printf "  ${GREEN}--verbose, -v${NC}       # Verbose mode for detailed output\n"
-    printf "  ${GREEN}--verify${NC}            # Force full dependency verification (bypass cache)\n\n"
+    printf "  ${GREEN}--verify${NC}            # Force full dependency verification (bypass cache)\n"
+    printf "  ${GREEN}--version${NC}           # Show version and system information\n\n"
     
     printf "${YELLOW}📝 Examples:${NC}\n"
     printf "  ${GREEN}yarn superclaude:commit${NC}            # Quick AI commit (quiet mode)\n"
@@ -1439,6 +1519,71 @@ cmd_help() {
     printf "  ${BLUE}└─${NC} Use in any git repository for instant AI assistance\n\n"
     
     print_verbose "Help system displayed successfully"
+}
+
+# Version command
+cmd_version() {
+    print_header "Version Information"
+    
+    printf "${BLUE}SuperClaude Version:${NC} ${GREEN}v${SUPERCLAUDE_VERSION}${NC}\n\n"
+    
+    printf "${YELLOW}🔧 System Information:${NC}\n"
+    
+    # Show tool versions
+    if command -v claude >/dev/null 2>&1; then
+        local claude_version=$(claude --version 2>/dev/null | head -1 || echo "unknown")
+        printf "  ├─ Claude Code: ${claude_version}\n"
+    else
+        printf "  ├─ Claude Code: ${RED}not installed${NC}\n"
+    fi
+    
+    if command -v git >/dev/null 2>&1; then
+        local git_version=$(git --version | cut -d' ' -f3)
+        printf "  ├─ Git: ${git_version}\n"
+    else
+        printf "  ├─ Git: ${RED}not installed${NC}\n"
+    fi
+    
+    if command -v node >/dev/null 2>&1; then
+        local node_version=$(node --version)
+        printf "  ├─ Node.js: ${node_version}\n"
+    else
+        printf "  ├─ Node.js: ${RED}not installed${NC}\n"
+    fi
+    
+    if command -v gh >/dev/null 2>&1; then
+        local gh_version=$(gh --version | head -1 | cut -d' ' -f3)
+        printf "  └─ GitHub CLI: ${gh_version}\n"
+    else
+        printf "  └─ GitHub CLI: ${RED}not installed${NC}\n"
+    fi
+    
+    echo ""
+    
+    # Check for updates
+    printf "${YELLOW}📦 Checking for updates...${NC}\n"
+    
+    local latest_version=""
+    if command -v timeout >/dev/null 2>&1; then
+        latest_version=$(timeout 5s npm view superclaude version 2>/dev/null || echo "")
+    else
+        latest_version=$(npm view superclaude version 2>/dev/null || echo "")
+    fi
+    
+    if [ -n "$latest_version" ]; then
+        if [ "$latest_version" != "$SUPERCLAUDE_VERSION" ]; then
+            printf "${YELLOW}  ├─ Current: v${SUPERCLAUDE_VERSION}${NC}\n"
+            printf "${GREEN}  ├─ Latest:  v${latest_version}${NC}\n"
+            printf "${YELLOW}  └─ Update:  ${GREEN}npm update -g superclaude${NC}\n"
+        else
+            printf "${GREEN}  └─ You're running the latest version! 🎉${NC}\n"
+        fi
+    else
+        printf "${RED}  └─ Unable to check for updates${NC}\n"
+    fi
+    
+    echo ""
+    printf "${BLUE}📚 More info: ${NC}https://github.com/gwendall/superclaude\n"
 }
 
 # Main command router
@@ -1463,6 +1608,9 @@ case "$COMMAND" in
         ;;
     "annotate")
         cmd_annotate
+        ;;
+    "version"|"--version")
+        cmd_version
         ;;
     "help"|"--help"|"-h"|"")
         cmd_help
