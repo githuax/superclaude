@@ -481,6 +481,36 @@ Package.json:
 $package_json"
 }
 
+# Ensure push authentication is properly configured
+ensure_push_auth() {
+    local remote_url=$(git remote get-url origin 2>/dev/null || echo "")
+    
+    if [[ "$remote_url" == https://github.com/* ]]; then
+        # HTTPS remote - ensure GitHub CLI credential helper is configured
+        if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+            print_verbose "Configuring GitHub CLI credential helper for HTTPS remote"
+            git config --local credential.https://github.com.helper ""
+            git config --local credential.https://github.com.helper "!gh auth git-credential"
+        else
+            print_error "HTTPS remote detected but no GitHub CLI authentication found"
+            print_verbose "  Either:"
+            print_verbose "  1. Run 'gh auth login' to authenticate with GitHub CLI"
+            print_verbose "  2. Switch to SSH: git remote set-url origin git@github.com:$(echo "$remote_url" | sed 's|https://github.com/||' | sed 's|\.git$||').git"
+            exit 1
+        fi
+    elif [[ "$remote_url" == git@github.com:* ]]; then
+        # SSH remote - verify SSH key works
+        if ! ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+            print_error "SSH remote detected but SSH authentication failed"
+            print_verbose "  Either:"
+            print_verbose "  1. Check your SSH key: ssh -T git@github.com"
+            print_verbose "  2. Generate a new key: ssh-keygen -t ed25519 -C \"your@email.com\""
+            print_verbose "  3. Add it to GitHub: https://github.com/settings/keys"
+            exit 1
+        fi
+    fi
+}
+
 # COMMIT command (restored working functionality)
 cmd_commit() {
     print_header "AI Commit"
@@ -488,6 +518,7 @@ cmd_commit() {
     print_substep "Verifying Claude AI and system dependencies..."
     check_dependencies
     check_git_repo
+    ensure_push_auth
     
     print_step "🔍 Repository status check..."
     print_substep "Checking working directory for changes..."
@@ -696,6 +727,8 @@ cmd_commit() {
     print_step "🚢 Pushing to remote repository..."
     print_substep "Pushing to origin/$current_branch..."
     print_thinking "Synchronizing local changes with remote repository..."
+    
+    # Push with proper authentication (already configured by ensure_push_auth)
     git push origin "$current_branch"
     print_verbose "Push completed successfully"
     
