@@ -102,7 +102,7 @@ NC='\033[0m' # No Color
 
 # Helper functions
 print_header() {
-    printf "${PURPLE}🚀 SuperClaude - %s${NC}\n" "$1"
+    printf "${PURPLE}🔮 SuperClaude - %s${NC}\n" "$1"
 }
 
 print_step() {
@@ -1456,7 +1456,7 @@ cmd_help() {
     print_header "AI-Powered Development Toolkit"
     print_verbose "Displaying comprehensive command reference and usage guide..."
     
-    printf "${PURPLE}🚀 SuperClaude - Your AI Development Assistant${NC}\n\n"
+    printf "${PURPLE}🔮 SuperClaude - Your AI Development Assistant${NC}\n\n"
     printf "${YELLOW}📋 Available Commands:${NC}\n\n"
     
     printf "  ${BLUE}commit${NC}     - 🤖 Generate AI-powered commit messages and push\n"
@@ -1498,7 +1498,7 @@ cmd_help() {
     
     printf "  ${BLUE}version${NC}    - 📋 Show version and system information\n\n"
     
-    printf "${YELLOW}🚀 Usage Patterns:${NC}\n"
+    printf "${YELLOW}🔮 Usage Patterns:${NC}\n"
     printf "  ${GREEN}yarn superclaude <command> [flags]${NC}  # Full command name\n"
     printf "  ${GREEN}yarn superclaude:<command>${NC}          # Quick yarn shortcut\n"
     printf "  ${GREEN}yarn superclaude:<command>:verbose${NC}  # Verbose yarn shortcut\n"
