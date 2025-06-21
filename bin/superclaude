@@ -101,14 +101,14 @@ check_dependencies() {
         local claude_version=$(claude --version 2>/dev/null || echo "unknown")
         print_verbose "✓ Claude Code found (version: $claude_version)"
         
-        # Check Claude Code authentication by looking for auth config
+        # Check Claude Code authentication by testing actual API call
         print_thinking "Verifying Claude Code authentication..."
-        if [ -f "$HOME/.config/claude-code/auth.json" ] || [ -f "$HOME/.claude/auth.json" ]; then
-            print_verbose "✓ Claude Code authentication found"
+        if claude --print "Hello, testing authentication" >/dev/null 2>&1; then
+            print_verbose "✓ Claude Code authentication working"
         else
             print_error "✗ Claude Code not authenticated"
             print_verbose "  Run 'claude' and complete the authentication process"
-            missing_deps+=("claude-auth")
+            missing_deps+=("claude-authentication")
             all_good=false
         fi
     else
@@ -187,9 +187,9 @@ check_dependencies() {
             case $dep in
                 "claude")
                     printf "${BLUE}├─ Claude Code:${NC} npm install -g @anthropic-ai/claude-code\n"
-                    printf "${BLUE}│  ${NC} Then run: claude auth login\n"
+                    printf "${BLUE}│  ${NC} Then run: claude (and complete authentication)\n"
                     ;;
-                "claude-auth")
+                "claude-authentication")
                     printf "${BLUE}├─ Claude Code Authentication:${NC} Run 'claude' and complete setup\n"
                     printf "${BLUE}│  ${NC} Choose from Anthropic Console, Claude Pro/Max, or Enterprise options\n"
                     ;;
