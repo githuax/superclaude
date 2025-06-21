@@ -226,6 +226,8 @@ gh auth login           # Authenticate with GitHub
 
 **System Requirements:** Node.js 18+, Git configured with user info.
 
+> 💡 **Authentication Tip:** When running `gh auth login`, choose **SSH** over HTTPS. SSH is more secure, eliminates password prompts, and provides seamless authentication for all git operations. If you don't have SSH keys, GitHub CLI can generate them for you automatically.
+
 ## Troubleshooting
 
 ### Common Issues

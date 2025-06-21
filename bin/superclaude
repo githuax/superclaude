@@ -161,21 +161,27 @@ check_dependencies() {
         print_verbose "⚠ Yarn not found (optional, npm can be used instead)"
     fi
     
-    # Check GitHub CLI (optional but recommended)
+    # Check GitHub CLI (required for git operations)
     print_thinking "Checking GitHub CLI availability..."
     if command -v gh >/dev/null 2>&1; then
         local gh_version=$(gh --version | head -1 | cut -d' ' -f3)
         print_verbose "✓ GitHub CLI found (version: $gh_version)"
         
-        # Check GitHub CLI authentication
+        # Check GitHub CLI authentication (REQUIRED)
         print_thinking "Verifying GitHub CLI authentication..."
         if gh auth status >/dev/null 2>&1; then
             print_verbose "✓ GitHub CLI authenticated"
         else
-            print_verbose "⚠ GitHub CLI not authenticated (optional for enhanced workflows)"
+            print_error "✗ GitHub CLI not authenticated"
+            print_verbose "  Run 'gh auth login' to authenticate with GitHub"
+            missing_deps+=("github-authentication")
+            all_good=false
         fi
     else
-        print_verbose "⚠ GitHub CLI not found (optional, enhances git workflows)"
+        print_error "✗ GitHub CLI not found"
+        print_verbose "  GitHub CLI is required for git push operations"
+        missing_deps+=("github-cli")
+        all_good=false
     fi
     
     if [ "$all_good" = false ]; then
@@ -204,6 +210,14 @@ check_dependencies() {
                 "node")
                     printf "${BLUE}├─ Node.js:${NC} https://nodejs.org/en/download/\n"
                     printf "${BLUE}│  ${NC} Or: brew install node (macOS) / apt install nodejs (Linux)\n"
+                    ;;
+                "github-cli")
+                    printf "${BLUE}├─ GitHub CLI:${NC} brew install gh (macOS) / apt install gh (Linux)\n"
+                    printf "${BLUE}│  ${NC} Or download from: https://cli.github.com/\n"
+                    ;;
+                "github-authentication")
+                    printf "${BLUE}├─ GitHub Authentication:${NC} Run 'gh auth login' and complete setup\n"
+                    printf "${BLUE}│  ${NC} Choose authentication method (browser/token/SSH)\n"
                     ;;
             esac
         done
