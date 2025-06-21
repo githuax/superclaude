@@ -196,6 +196,7 @@ quick_check() {
         return 1
     fi
     
+    # This Claude authentication test can take a few seconds
     if ! claude --print "test" >/dev/null 2>&1; then
         return 1
     fi
@@ -290,14 +291,21 @@ check_dependencies() {
     # Force full check if --verify flag is used
     if [[ "$*" == *"--verify"* ]]; then
         print_verbose "🔄 Forcing full dependency verification (--verify flag)"
-    elif is_cache_valid && quick_check; then
-        if [ "$VERBOSE_MODE" = true ]; then
-            local cache_age=$(( ($(date +%s) - $(stat -f %m "$CACHE_FILE" 2>/dev/null || stat -c %Y "$CACHE_FILE" 2>/dev/null)) / 3600 ))
-            print_verbose "✅ Dependencies verified (cached ${cache_age}h ago)"
+    elif is_cache_valid; then
+        print_substep "Testing Claude AI authentication..."
+        if quick_check; then
+            if [ "$VERBOSE_MODE" = true ]; then
+                local cache_age=$(( ($(date +%s) - $(stat -f %m "$CACHE_FILE" 2>/dev/null || stat -c %Y "$CACHE_FILE" 2>/dev/null)) / 3600 ))
+                print_verbose "✅ Dependencies verified (cached ${cache_age}h ago)"
+            else
+                print_verbose "✅ Dependencies verified (cached)"
+            fi
+            return 0
         else
-            print_verbose "✅ Dependencies verified (cached)"
+            print_substep "Cache invalid or authentication failed, running full verification..."
         fi
-        return 0
+    else
+        print_substep "Running dependency verification (this may take a few seconds)..."
     fi
     
     print_step "🔧 System dependencies check..."
@@ -501,7 +509,8 @@ $package_json"
 # COMMIT command (restored working functionality)
 cmd_commit() {
     print_header "AI Commit"
-    print_verbose "Initializing AI-powered commit workflow..."
+    print_step "🔧 Initializing AI-powered commit workflow..."
+    print_substep "Verifying Claude AI and system dependencies..."
     check_dependencies
     check_git_repo
     
