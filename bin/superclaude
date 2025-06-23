@@ -63,6 +63,7 @@ process_template() {
 INTERACTIVE_MODE=false
 VERBOSE_MODE=false
 COMMAND=""
+COMMIT_GUIDANCE=""
 
 while [ $# -gt 0 ]; do
     case $1 in
@@ -90,6 +91,9 @@ while [ $# -gt 0 ]; do
         *)
             if [ -z "$COMMAND" ]; then
                 COMMAND="$1"
+            elif [ "$COMMAND" = "commit" ] && [ -z "$COMMIT_GUIDANCE" ]; then
+                # Capture commit guidance message for commit command
+                COMMIT_GUIDANCE="$1"
             fi
             shift
             ;;
@@ -554,10 +558,18 @@ cmd_commit() {
     print_substep "Building context for AI commit message generation..."
     print_thinking "Analyzing code changes to understand the intent and impact..."
     
+    # Add guidance context if provided
+    local additional_context=""
+    if [ -n "$COMMIT_GUIDANCE" ]; then
+        additional_context="Additional context: $COMMIT_GUIDANCE"
+        print_verbose "Using additional context: $COMMIT_GUIDANCE"
+    fi
+    
     # Load and process commit prompt template
     local prompt_template=$(load_prompt "commit")
     local commit_prompt_1=$(process_template "$prompt_template" "file_changes" "$file_changes")
-    local commit_prompt=$(process_template "$commit_prompt_1" "diff_stat" "$diff_stat")
+    local commit_prompt_2=$(process_template "$commit_prompt_1" "diff_stat" "$diff_stat")
+    local commit_prompt=$(process_template "$commit_prompt_2" "additional_context" "$additional_context")
 
     print_substep "Sending analysis request to Claude..."
     print_thinking "Determining commit type (feat/fix/refactor/etc.) based on file patterns..."
@@ -1456,6 +1468,7 @@ cmd_help() {
     printf "  ${BLUE}commit${NC}     - 🤖 Generate AI-powered commit messages and push\n"
     printf "              ${BLUE}├─${NC} Analyzes git changes with detailed context\n"
     printf "              ${BLUE}├─${NC} Creates conventional commit messages\n"
+    printf "              ${BLUE}├─${NC} Optional: provide additional context: commit \"fixing auth bug\"\n"
     printf "              ${BLUE}├─${NC} Interactive mode: confirm/edit before committing\n"
     printf "              ${BLUE}└─${NC} Automatically stages, commits, and pushes\n\n"
     
@@ -1509,6 +1522,8 @@ cmd_help() {
     printf "  ${GREEN}yarn superclaude:commit:verbose${NC}    # Detailed progress output\n"
     printf "  ${GREEN}yarn superclaude:commit:interactive${NC} # Interactive confirmation\n"
     printf "  ${GREEN}yarn superclaude:commit:full${NC}       # Interactive + verbose\n"
+    printf "  ${GREEN}superclaude commit \"fixing auth bug\"${NC} # With additional context\n"
+    printf "  ${GREEN}superclaude commit \"add user dashboard\" -i${NC} # Context + interactive\n"
     printf "  ${GREEN}yarn superclaude:annotate${NC}          # Add AI notes to all commits\n"
     printf "  ${GREEN}yarn superclaude:annotate:verbose${NC}  # Verbose annotation process\n"
     printf "  ${GREEN}yarn superclaude:changelog:verbose${NC} # Changelog with progress details\n"
