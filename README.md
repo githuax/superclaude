@@ -3,7 +3,7 @@
 [![npm version](https://badge.fury.io/js/superclaude.svg)](https://badge.fury.io/js/superclaude)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-🔮 **Give Claude superpowers for GitHub workflows.** Transform your development process with AI-powered commit messages, intelligent changelogs, automated documentation, and code reviews that actually understand your codebase.
+🔮 **Supercharge your GitHub workflow with Claude AI.** Transform your development process with AI-powered commit messages, intelligent changelogs, automated documentation, and code reviews that actually understand your codebase.
 
 ## Quick Install
 
