@@ -3,7 +3,7 @@
 [![npm version](https://badge.fury.io/js/superclaude.svg)](https://badge.fury.io/js/superclaude)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-🚀 **Give Claude superpowers for GitHub workflows.** Transform your development process with AI-powered commit messages, intelligent changelogs, automated documentation, and code reviews that actually understand your codebase.
+🔮 **Give Claude superpowers for GitHub workflows.** Transform your development process with AI-powered commit messages, intelligent changelogs, automated documentation, and code reviews that actually understand your codebase.
 
 ## Quick Install
 
@@ -17,12 +17,29 @@ npm install -g superclaude
 
 ```bash
 cd your-project
+superclaude --verify        # Check system dependencies and authentication
 superclaude commit          # AI generates perfect commit messages
 superclaude changelog       # Creates intelligent project history
 superclaude readme          # Writes comprehensive documentation
 ```
 
 ## Commands
+
+### 🔧 `superclaude --verify`
+**Smart dependency and authentication checking.**
+
+Validates your system setup and authentication status with intelligent caching to avoid repeated checks. Ensures Claude, Git, and GitHub authentication are properly configured.
+
+```bash
+superclaude --verify                  # Force full dependency check
+```
+
+**How it works:**
+- Validates Claude Code installation and authentication
+- Checks Git configuration and user setup
+- Verifies GitHub authentication (SSH keys or GitHub CLI)
+- Uses intelligent 24-hour caching to avoid repeated checks
+- Provides detailed feedback on any missing dependencies
 
 ### 🤖 `superclaude commit`
 **AI-powered commits that actually make sense.**
@@ -33,12 +50,15 @@ Analyzes your git changes, understands the context, and generates conventional c
 superclaude commit                    # Quick AI commit
 superclaude commit --interactive      # Review before committing  
 superclaude commit --verbose          # See the AI thinking process
+superclaude commit "Add user context" # Include additional context
 ```
 
 **How it works:**
 - Scans all changed files and understands the modifications
 - Analyzes code patterns to determine commit type (feat/fix/refactor/etc.)
 - Generates conventional commit format with clear descriptions
+- Supports additional context to guide commit message generation
+- Enhanced authentication validation for seamless push operations
 - Automatically stages, commits, and pushes to your current branch
 
 ### 📅 `superclaude changelog`
@@ -228,7 +248,7 @@ gh auth login           # Authenticate with GitHub
 
 ### GitHub Authentication Setup
 
-SuperClaude automatically detects your git remote configuration and validates the appropriate authentication method:
+SuperClaude uses intelligent global authentication detection that works across all your repositories. The system automatically validates your GitHub access using either SSH keys or GitHub CLI authentication:
 
 #### 🔐 **SSH Authentication (Recommended)**
 If your remote uses `git@github.com:...` format:
@@ -293,10 +313,11 @@ gh auth login          # Authenticate with GitHub
 ```
 
 ### Debug Mode
-Use `--verbose` for detailed output:
+Use `--verbose` for detailed output and `--verify` for dependency checking:
 ```bash
-superclaude commit --verbose
-# Shows step-by-step AI reasoning and git operations
+superclaude commit --verbose          # Shows step-by-step AI reasoning
+superclaude --verify                  # Force full system verification
+superclaude --verify --verbose        # Detailed dependency diagnostics
 ```
 
 ### Getting Help
