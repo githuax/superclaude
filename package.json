@@ -1,6 +1,6 @@
 {
   "name": "superclaude",
-  "version": "1.2.0",
+  "version": "1.0.3",
   "description": "🔮 Give Claude AI superpowers for GitHub workflows. Transform 'fix stuff' commits into professional messages, generate intelligent changelogs, create comprehensive docs, and get AI code reviews that actually understand your codebase. One command replaces hours of manual work.",
   "main": "index.js",
   "bin": {
@@ -37,7 +37,7 @@
   "bugs": {
     "url": "https://github.com/gwendall/superclaude/issues"
   },
-  "homepage": "https://github.com/gwendall/superclaude#readme",
+  "homepage": "https://superclaude.sh",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
